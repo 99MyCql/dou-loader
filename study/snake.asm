@@ -1,3 +1,8 @@
+;--------------------
+; @name: snake
+; @description: 工作程序三。网上找到的贪吃蛇程序，存在bug。
+; @author: xxxxxx
+;--------------------
 org 7c00h
 
 global start
