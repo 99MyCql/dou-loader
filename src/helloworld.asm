@@ -1,6 +1,6 @@
 ;--------------------
 ; @name: helloworld
-; @description: 工作程序一，由loader引导加载。以TTY方式输出helloworld，和输出有颜色的helloworld
+; @description: 加载程序一，由loader引导加载。以TTY方式输出helloworld，和输出有颜色的helloworld
 ; @author: dounine
 ;--------------------
 
@@ -26,7 +26,6 @@ Lab2:
 	mov bh, 0
 	mov ah, 3		; 读光标位置。返回ch=光标开始行，cl=光标结束行，dh=行号，dl=列号
 	int 10H
-
 	mov si, hello2
 Lab3:
 	lodsb
@@ -42,6 +41,9 @@ Lab3:
 	int 10H	
 	jmp Lab3
 Exit:
+	mov al, 0AH
+	mov ah, 14
+    int 10H			; 换行
     retf
 
 ;----------data----------

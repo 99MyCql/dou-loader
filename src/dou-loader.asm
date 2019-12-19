@@ -4,9 +4,11 @@
 ; @author: dounine
 ;--------------------
 
-helloworld_LBA	equ	1
-helloworld_len	equ	1
 PROG_TEMP		equ 7C00H	; 存放工作程序的内存区地址偏移值
+Space			equ	20H		; 空格符
+EnterKey		equ	0DH		; 回车符
+Newline			equ	0AH		; 换行符
+Backspace		equ	08H		; 退格符
 
 ;--------- code ----------
     section text
@@ -35,7 +37,7 @@ Next:
 	call getDec			; 获取用户输入的选项
 	mov di, ax
 	dec di				; 减1
-	cmp di, ProgCount
+	cmp di, [ProgCount]
 	jae Invaild			; 大于等于程序数则报错
 	mov word [DiskAP+4], PROG_TEMP	; 设置加载程序存放的内存地址偏移值
 	shl di, 2						; di=di*4
@@ -64,7 +66,9 @@ ReadError:
 	call printStr		; 打印读磁盘失败信息
 	jmp PrintPrompt
 JmpProg:
+	pusha				; 保存现场。防止与加载程序混用寄存器
 	call 0000:7C00H		; 跳转至工作程序入口地址
+	popa				; 恢复现场
 	jmp PrintPrompt
 
 ;------------------------------------
@@ -79,13 +83,16 @@ getDec:
 getDec_for1:
     call getChar
 
-    cmp al, 0DH
+    cmp al, EnterKey
     je getDec_enter	; 遇到回车进行相关处理
 
-    cmp al, '0'
+	cmp al, Backspace
+	je getDec_back	; 遇到退格进行相关处理
+
+    cmp al, '1'
     jb getDec_for1
     cmp al, '9'
-    ja getDec_for1 	; 输入必须0-9
+    ja getDec_for1 	; 输入必须0-9，若不是则继续接收字符
 
     call putChar	; 显示输入的字符，0-9之间
 
@@ -94,10 +101,31 @@ getDec_for1:
     mov ah, 0
     add bx, ax		; sum = sum*10 + num
     jmp getDec_for1
+getDec_back:
+	cmp bx, 0
+	je getDec_for1	; 若未输入字符，则不可退格
+
+	call putChar	; 先退格
+	mov al, Space
+	call putChar	; 用空格覆盖下一个字符
+	mov al, Backspace
+	call putChar	; 再退格
+
+	push dx
+	push cx
+	mov ax, bx
+	mov dx, 0
+	mov cx, 10
+	div cx		; dx:ax / cx = ax...dx
+	mov bx, ax
+	pop dx
+	pop cx
+
+	jmp getDec_for1
 getDec_enter:
-    mov al, 0DH
+    mov al, EnterKey
 	call putChar
-	mov al, 0AH
+	mov al, Newline
     call putChar 	; 显示回车+换行
 getDec_return:
     mov ax, bx
@@ -164,9 +192,12 @@ ProgInfo:
 	; 3.clock
 	dw	3	; LBA
 	dw	1	; 所占扇区数
+	; 4.keyboard
+	dw	4	; LBA
+	dw	1	; 所占扇区数
 
-ProgCount	db	2 ; 加载程序数量
-prompt_msg	db	0DH, 0AH, "Choose:", 0DH, 0AH, "1.helloworld", 0DH, 0AH, "2.sum&diff", 0DH, 0AH, "3.clock", 0DH, 0AH, 0DH, 0AH, "dou-loader > ", 0
+ProgCount	dw	4 ; 加载程序数量
+prompt_msg	db	0DH, 0AH, "Choose: 1.helloworld 2.sum&diff 3.clock 4.keyboard", 0DH, 0AH, "dou-loader > ", 0
 invaild_msg	db	"Invaild choose...", 0DH, 0AH, 0
 readErr_msg	db	"Reading disk error...", 0DH, 0AH, 0
 
