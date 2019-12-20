@@ -195,9 +195,15 @@ ProgInfo:
 	; 4.keyboard
 	dw	4	; LBA
 	dw	1	; 所占扇区数
+	; 5.div
+	dw	5	; LBA
+	dw	1	; 所占扇区数
+	; 6.extend-IO
+	dw	6	; LBA
+	dw	1	; 所占扇区数
 
-ProgCount	dw	4 ; 加载程序数量
-prompt_msg	db	0DH, 0AH, "Choose: 1.helloworld 2.sum&diff 3.clock 4.keyboard", 0DH, 0AH, "dou-loader > ", 0
+ProgCount	dw	6 ; 加载程序数量
+prompt_msg	db	0DH, 0AH, "Choose:", 0DH, 0AH, "1.helloworld 2.sum&diff 3.clock 4.keyboard 5.div 6.extend-IO", 0DH, 0AH, "dou-loader > ", 0
 invaild_msg	db	"Invaild choose...", 0DH, 0AH, 0
 readErr_msg	db	"Reading disk error...", 0DH, 0AH, 0
 
