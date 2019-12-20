@@ -1,6 +1,6 @@
 ;--------------------
 ; @name: extend-IO
-; @description: 加载程序六。
+; @description: 加载程序六。设置 INT 90H 为扩展的输出程序，以TTY方式输出带属性的字符。
 ; @author: dounine
 ;--------------------
 
