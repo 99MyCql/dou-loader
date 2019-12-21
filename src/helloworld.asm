@@ -38,7 +38,7 @@ Lab3:
 
 	inc dl
 	mov ah, 2		; 置光标于下一个位置
-	int 10H	
+	int 10H
 	jmp Lab3
 Exit:
 	mov al, 0AH

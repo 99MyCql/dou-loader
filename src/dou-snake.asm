@@ -1,10 +1,11 @@
 ;--------------------
-; @name: snake
+; @name: dou-snake
 ; @description: 加载程序七。自创贪吃蛇程序
 ; @author: dounine
 ;--------------------
 
 EnterKey		equ	0DH
+EscKey			equ	1BH
 UpKey			equ	77H	; 'w'
 DownKey			equ	73H	; 's'
 LeftKey			equ	61H	; 'a'
@@ -16,6 +17,7 @@ fruit_pat		equ	'#'
 score_row		equ	1	; 分数显示的行号
 score_col		equ	70	; 分数显示的列号
 speed_min		equ	5	; 越小越快
+color			equ	0EH	; 颜色
 
 ;--------- code ----------
 	section text
@@ -46,7 +48,7 @@ SetNewInt:
 	sti					; 开中断
 GetChar2:
 	cmp byte [is_gameOver], 1
-	je Exit				; 如果全局变量 is_gameOver 被设置成1，则直接退出
+	je Over				; 如果全局变量 is_gameOver==1，则直接退出
 	call getChar		; 获取方向键，设置全局变量dir
 	cmp al, UpKey
 	je SetUp
@@ -69,8 +71,19 @@ SetDown:
 SetLeft:
 	mov byte [dir], 3
 	jmp GetChar2
-Exit:
+Over:					; 游戏结束
+	push 0
+	pop es
+	mov si, 01CH
 	mov word [es:si], old_int_1CH	; 还原1CH号中断向量
+GetChar3:
+	; call getChar		; GetChar2中已经获取了用户按键
+	cmp al, EscKey
+	je Exit				; 如果用户按下Esc则结束，否则继续获取按键
+	call getChar
+	jmp GetChar3
+Exit:
+	call clearScreen	; 清屏
     retf
 
 
@@ -89,6 +102,8 @@ new_int_1CH:
 	pusha					; 保存现场
 	push cs
 	pop ds					; 设置数据段为代码段段值，为了能够找到数据位置
+	cmp byte [is_gameOver], 1
+	je new_int_1CH_ret		; 如果游戏已经结束
 	dec byte [count]		; 触发次数减一
 	jnz new_int_1CH_ret		; 若不等于0，则直接退出
 	mov al, byte [speed]	; 若等于0，则重新设值，并进入函数
@@ -96,28 +111,28 @@ new_int_1CH:
 
 	sti						; 开中断
 	call clearScreen		; 清屏
+	call fruitShow			; 显示果子
+	call scoreShow			; 显示分数
 
-	mov dh, byte [fruit_pos]
-	mov dl, byte [fruit_pos+1]
-	mov bh, 0
-	mov ah, 2
-	int 10H					; 设置光标位置
-	mov al, fruit_pat
-	call putChar			; 打印果子
+	call snakeMove			; snake前进
+	call snakeShow			; 显示snake
 
-	mov si, score_msg
-	mov dh, score_row
-	mov dl, score_col
-	call printStr			; 打印"score:"字符串
-	mov ax, [score]
-	call printDec			; 打印分数
+	call snakeCheck			; 判断snake是否撞墙或撞自己了
+	cmp al, 0
+	je new_int_1CH_next		; 如果 al==0 ，则游戏未结束，继续下一步
 
-	call snakeMove			; 蛇前进
-	call snakeShow			; 打印蛇身
-
-	call isEatFruit			; 判断是否吃到果子，返回al
+	mov byte [is_gameOver], al		; 设置全局变量 is_gameOver=1，告诉主程序游戏结束
+	call clearScreen		; 清屏
+	mov dh, 10
+	mov dl, 25
+	mov si, gameOver_msg
+	call printStr			; 打印游戏结束信息
+	jmp new_int_1CH_ret
+new_int_1CH_next:
+	call isEatFruit			; 判断snake是否吃到果子，返回al
 	cmp al, 0
 	je new_int_1CH_ret		; 如果 al==0 ，则没吃到果子，直接退出
+
 	call snakeAdd			; 如果吃到了果子，snake长度++
 	inc word [score]		; 分数++
 	call speedAdd			; 速度++
@@ -129,10 +144,57 @@ new_int_1CH_ret:
 
 
 ;------------------------------------
+; snakeCheck: 判断snake是否撞墙或撞自己了
+;	@uses: dx, si
+;	@returns:
+;		al: 0否，1是
+;------------------------------------
+snakeCheck:
+	push dx
+	push si
+	mov dh, byte [snake]		; 取蛇头行号
+	mov dl, byte [snake+1]		; 取蛇头列号
+
+	cmp dh, 24					; 检查是否碰壁
+	je snakeCheck_gameOver
+	cmp dh, 0
+	je snakeCheck_gameOver
+	cmp dl, 79
+	je snakeCheck_gameOver
+	cmp dl, 0
+	je snakeCheck_gameOver
+
+	mov si, 1					; 检查是否撞自己
+snakeCheck_checkBody:
+	cmp si, word [snake_len]
+	je snakeCheck_gameNoOver
+	shl si, 2					; si=si*4，每个结点4个字节
+	cmp dh, byte [snake+si]		; 比较行号
+	jne snakeCheck_next
+	cmp dl, byte [snake+si+1]	; 如果行号相等，则比较列号
+	je snakeCheck_gameOver		; 列号也相等，则游戏结束
+snakeCheck_next:
+	shr si, 2					; si=si/4
+	inc si						; si++
+	jmp snakeCheck_checkBody
+snakeCheck_gameNoOver:
+	mov al, 0
+	jmp snakeCheck_ret
+snakeCheck_gameOver:
+	mov al, 1
+snakeCheck_ret:
+	pop dx
+	pop si
+	ret
+
+
+;------------------------------------
 ; updateFruitPos: 更新果子的位置
-;	@uses: ax, dx
+;	@uses: ax, bx
 ;------------------------------------
 updateFruitPos:
+	push ax
+	push bx
 	mov ax, 0H					; 间隔定时器
     out 43H, al					; 通过端口43h
     in al, 40H					; 访问3次，保证随机性
@@ -151,6 +213,8 @@ updateFruitPos:
 	add al, 10					; 10-69的随机数
 	mov byte [fruit_pos+1], al	; 保存列号
 updateFruitPos_ret:
+	pop bx
+	pop ax
 	ret
 
 ;------------------------------------
@@ -328,6 +392,49 @@ snakeShow_ret:
 	ret
 
 ;------------------------------------
+; scoreShow: 显示分数
+;   @uses: ax, dx, si
+;------------------------------------
+scoreShow:
+	push ax
+	push dx
+	push si
+	mov si, score_msg
+	mov dh, score_row
+	mov dl, score_col
+	call printStr			; 打印"score:"字符串
+	mov ax, [score]
+	call printDec			; 打印分数
+scoreShow_ret:
+	pop si
+	pop dx
+	pop ax
+	ret
+
+
+;------------------------------------
+; fruitShow: 根据全局变量 fruit_pos 显示果子
+;   @uses: ax, bx, dx
+;------------------------------------
+fruitShow:
+	push ax
+	push bx
+	push dx
+	mov dh, byte [fruit_pos]
+	mov dl, byte [fruit_pos+1]
+	mov bh, 0
+	mov ah, 2
+	int 10H					; 设置光标位置
+	mov al, fruit_pat
+	call putChar			; 打印果子
+fruitShow_ret:
+	pop dx
+	pop bx
+	pop ax
+	ret
+
+
+;------------------------------------
 ; printStr: 在指定位置打印字符串
 ;   @params:
 ;       si: 字符串首地址
@@ -407,8 +514,26 @@ getChar:
 ;		al: ASCII码
 ;------------------------------------
 putChar:
-	mov ah, 14
+	push ax
+	push bx
+	push cx
+	push dx
+	mov bh, 0
+	mov ah, 3		; 读光标位置。返回ch=光标开始行，cl=光标结束行，dh=行号，dl=列号
 	int 10H
+
+	mov bl, color	; 字符属性
+	mov cx, 1		; 字符重复次数
+	mov ah, 9		; 将字符和属性写到光标位置处，光标不移动
+	int 10H
+
+	inc dl
+	mov ah, 2		; 置光标于下一个位置
+	int 10H
+	pop dx
+	pop cx
+	pop bx
+	pop ax
 	ret
 
 ;------------------------------------
@@ -451,7 +576,7 @@ count			db	1	; 计数器
 score			dw	0	; 分数
 is_gameOver		db	0	; 游戏是否结束，0否，1是
 welcome_msg		db	"Welcome to Snake Game!!! (Enter)", 0
-gameOver_msg	db	"Game is over, play again? (y/n)", 0
+gameOver_msg	db	"HaHaHaHa!!! Game is over. (Esc)", 0
 score_msg		db	"score:", 0
 
 
