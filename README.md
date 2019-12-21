@@ -19,7 +19,7 @@
 
 ## Run
 
-use `nams` to compile the `.asm` e.g.:
+use `nasm` to compile the `.asm` e.g.:
 
 ```bash
 nasm xxx.asm -f bin -o xxx.bin
