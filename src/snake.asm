@@ -9,9 +9,13 @@ UpKey			equ	77H	; 'w'
 DownKey			equ	73H	; 's'
 LeftKey			equ	61H	; 'a'
 RightKey		equ	64H	; 'd'
-snake_len_max	equ	5H
+snake_len_max	equ	50H	; snake的最大长度
 snake_head_pat	equ	0E9H
-snake_node_pat	equ	0CEH
+snake_node_pat	equ	'*'
+fruit_pat		equ	'#'
+score_row		equ	1	; 分数显示的行号
+score_col		equ	70	; 分数显示的列号
+speed_min		equ	5	; 越小越快
 
 ;--------- code ----------
 	section text
@@ -82,6 +86,7 @@ old_int_1CH:
 ;------------------------------------
 new_int_1CH:
 	push ds
+	pusha					; 保存现场
 	push cs
 	pop ds					; 设置数据段为代码段段值，为了能够找到数据位置
 	dec byte [count]		; 触发次数减一
@@ -90,24 +95,143 @@ new_int_1CH:
 	mov byte [count], al
 
 	sti						; 开中断
-	pusha					; 保存现场
 	call clearScreen		; 清屏
 
+	mov dh, byte [fruit_pos]
+	mov dl, byte [fruit_pos+1]
+	mov bh, 0
+	mov ah, 2
+	int 10H					; 设置光标位置
+	mov al, fruit_pat
+	call putChar			; 打印果子
+
 	mov si, score_msg
-	mov dh, 1
-	mov dl, 70
+	mov dh, score_row
+	mov dl, score_col
 	call printStr			; 打印"score:"字符串
-	inc word [score]
 	mov ax, [score]
 	call printDec			; 打印分数
 
 	call snakeMove			; 蛇前进
 	call snakeShow			; 打印蛇身
 
-	popa					; 恢复现场
+	call isEatFruit			; 判断是否吃到果子，返回al
+	cmp al, 0
+	je new_int_1CH_ret		; 如果 al==0 ，则没吃到果子，直接退出
+	call snakeAdd			; 如果吃到了果子，snake长度++
+	inc word [score]		; 分数++
+	call speedAdd			; 速度++
+	call updateFruitPos		; 更新果子位置
 new_int_1CH_ret:
+	popa					; 恢复现场
 	pop ds
 	iret
+
+
+;------------------------------------
+; updateFruitPos: 更新果子的位置
+;	@uses: ax, dx
+;------------------------------------
+updateFruitPos:
+	mov ax, 0H					; 间隔定时器
+    out 43H, al					; 通过端口43h
+    in al, 40H					; 访问3次，保证随机性
+    mov bl, 20
+    div bl						; ax/bl(20) = al......ah
+    mov al, ah					; 取余数
+	add al, 3					; 3-22的随机数
+	mov byte [fruit_pos], al	; 保存行号
+
+	mov ax, 0H					; 间隔定时器
+    out 43H, al					; 通过端口43h
+    in al, 40H					; 访问3次，保证随机性
+    mov bl, 60
+    div bl						; ax/bl(60) = al......ah
+    mov al, ah					; 取余数
+	add al, 10					; 10-69的随机数
+	mov byte [fruit_pos+1], al	; 保存列号
+updateFruitPos_ret:
+	ret
+
+;------------------------------------
+; speedAdd: 前进速度变快
+;------------------------------------
+speedAdd:
+	cmp byte [speed], speed_min
+	je speedAdd_ret
+	dec byte [speed]
+speedAdd_ret:
+	ret
+
+
+;------------------------------------
+; snakeAdd: 蛇变长
+;   @uses: si, di, eax
+;------------------------------------
+snakeAdd:
+	push eax
+	push si
+	push di
+	cmp word [snake_len], snake_len_max
+	je snakeAdd_ret
+	mov si, word [snake_len]
+	shl si, 2					; 指向新结点
+	mov di, word [snake_len]
+	dec di
+	shl di, 2					; 指向蛇尾结点
+	mov eax, dword [snake+di]
+	mov dword [snake+si], eax	; 复制到新结点中
+
+	mov al, byte [snake+si+2]	; 获取方向
+	cmp al, 0
+	je updateUp
+	cmp al, 1
+	je updateRight
+	cmp al, 2
+	je updateDown
+	cmp al, 3
+	je updateLeft
+	jmp snakeAdd_ret
+updateUp:
+	inc byte [snake+si]			; 向下增加结点，行号++
+	jmp snakeAdd_ret
+updateRight:
+	dec byte [snake+si+1]		; 向左增加结点，列号--
+	jmp snakeAdd_ret
+updateDown:
+	dec byte [snake+si]			; 向上增加结点，行号--
+	jmp snakeAdd_ret
+updateLeft:
+	inc byte [snake+si+1]		; 向右增加结点，列号++
+snakeAdd_ret:
+	inc word [snake_len]
+	pop di
+	pop si
+	pop eax
+	ret
+
+;------------------------------------
+; isEatFruit: 判断是否吃到果子
+;   @uses: dx
+;	@returns:
+;		al: 0否，1是
+;------------------------------------
+isEatFruit:
+	push dx
+	mov dh, byte [snake]
+	mov dl, byte [snake+1]
+	cmp dh, byte [fruit_pos]
+	jne not_eat
+	cmp dl, byte [fruit_pos+1]
+	jne not_eat
+	mov	al, 1
+	jmp isEatFruit_ret
+not_eat:
+	mov al, 0
+isEatFruit_ret:
+	pop dx
+	ret
+
 
 ;------------------------------------
 ; snakeMove: 根据全局变量 snake 让蛇前进
@@ -179,7 +303,7 @@ snakeShow:
 	push ax						; 保存用到的寄存器
 	mov si, 0
 snakeShow_for1:
-	cmp si, [snake_len]			; 判断是否超过snake长度
+	cmp si, word [snake_len]			; 判断是否超过snake长度
 	je snakeShow_ret
 	shl si, 2					; si=si*4，每个结点4个字节
 	mov dh, byte [snake+si]		; 取行号
@@ -193,6 +317,10 @@ snakeShow_for1:
 	inc si						; si++
 	jmp snakeShow_for1
 snakeShow_ret:
+	mov dx, 0
+	mov bh, 0
+	mov ah, 2
+	int 10H						; 设置光标位置于左上角
 	pop ax
 	pop bx
 	pop dx
@@ -313,13 +441,13 @@ snake:
 
 ; 果实位置
 fruit_pos:
-	db	5	; 行号
-	db	15	; 列号
+	db	6	; 行号
+	db	50	; 列号
 
 snake_len		dw	3	; 初始为3
 dir				db	1	; 方向
-speed			db	30	; 前进速度。值越大速度越快，等于18时，1秒动一次
-count			db	30	; 计数器
+speed			db	10	; 前进速度。值越大速度越快，等于18时，1秒动一次
+count			db	1	; 计数器
 score			dw	0	; 分数
 is_gameOver		db	0	; 游戏是否结束，0否，1是
 welcome_msg		db	"Welcome to Snake Game!!! (Enter)", 0
