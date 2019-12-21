@@ -5,13 +5,13 @@
 ;--------------------
 
 EnterKey		equ	0DH
-UpKey			equ	77H
-DownKey			equ	73H
-LeftKey			equ	61H
-RightKey		equ	64H
+UpKey			equ	77H	; 'w'
+DownKey			equ	73H	; 's'
+LeftKey			equ	61H	; 'a'
+RightKey		equ	64H	; 'd'
 snake_len_max	equ	5H
-snake_head_pat	equ	'O'
-snake_node_pat	equ	'*'
+snake_head_pat	equ	0E9H
+snake_node_pat	equ	0CEH
 
 ;--------- code ----------
 	section text
@@ -56,14 +56,14 @@ GetChar2:
 SetUp:
 	mov byte [dir], 0
 	jmp GetChar2
+SetRight:
+	mov byte [dir], 1
+	jmp GetChar2
 SetDown:
 	mov byte [dir], 2
 	jmp GetChar2
 SetLeft:
 	mov byte [dir], 3
-	jmp GetChar2
-SetRight:
-	mov byte [dir], 1
 	jmp GetChar2
 Exit:
 	mov word [es:si], old_int_1CH	; 还原1CH号中断向量
@@ -101,7 +101,7 @@ new_int_1CH:
 	mov ax, [score]
 	call printDec			; 打印分数
 
-	; call snakeMove			; 蛇前进
+	call snakeMove			; 蛇前进
 	call snakeShow			; 打印蛇身
 
 	popa					; 恢复现场
@@ -127,17 +127,15 @@ snakeHeadMove:					; 蛇头移动
 	mov al, ah
 	jmp forwardDir
 snakeMove_for1:					; 蛇身移动
-	cmp si, [snake_len]			; 判断是否超过snake长度
+	cmp si, word [snake_len]	; 判断是否超过snake长度
 	je snakeMove_ret
-	mov di, si-1				; 找到上一个结点
-	shl di, 2					; di=di*4
-	mov ah, byte [snake+di+2]	; 取上一个结点的方向
 	shl si, 2					; si=si*4
 	mov al, byte [snake+si+2]	; 取当前结点方向
-snakeMove_for1_cmp:
-	cmp al, ah					; 比较两个结点的方向
-	je forwardDir				; 如果相同，则方向不变，蛇直接前进
-	mov byte [snake+si+2], ah	; 如果不相同，则方向改变，但蛇按原方向前进
+
+	cmp al, ah					; 比较两个结点的方向， ah 记录着上一个结点的前进方向
+	je forwardDir				; 如果相同，则方向不变，当前结点直接前进
+	mov byte [snake+si+2], ah	; 如果不相同，则方向改变(决定下一次前进的方向)，但当前结点按原方向前进
+	mov ah, al					; 因为当前结点还是原方向前进，所以 ah 记录当前结点的原方向
 forwardDir:
 	cmp al, 0
 	je forwardUp
@@ -147,6 +145,7 @@ forwardDir:
 	je forwardDown
 	cmp al, 3
 	je forwardLeft
+	jmp snakeMove_for1_end
 forwardUp:
 	dec byte [snake+si]			; 向上，行号--
 	jmp snakeMove_for1_end
@@ -161,7 +160,7 @@ forwardLeft:
 snakeMove_for1_end:
 	shr si, 2
 	inc si
-	jmp snakeShow_for1
+	jmp snakeMove_for1
 snakeMove_ret:
 	pop di
 	pop si
@@ -329,5 +328,5 @@ score_msg		db	"score:", 0
 
 
 ;--------- MBR补充(做为加载程序时，忽略) ------------
-times   510 - ($-$$)    db  0
-db      55H, 0AAH
+; times   510 - ($-$$)    db  0
+; db      55H, 0AAH
