@@ -11,7 +11,7 @@ LeftKey			equ	61H
 RightKey		equ	64H
 snake_len_max	equ	5H
 snake_head_pat	equ	'O'
-snake_node_pat	equ	'#'
+snake_node_pat	equ	'*'
 
 ;--------- code ----------
 	section text
@@ -83,24 +83,122 @@ old_int_1CH:
 new_int_1CH:
 	push ds
 	push cs
-	pop ds
+	pop ds					; 设置数据段为代码段段值，为了能够找到数据位置
 	dec byte [count]		; 触发次数减一
 	jnz new_int_1CH_ret		; 若不等于0，则直接退出
 	mov al, byte [speed]	; 若等于0，则重新设值，并进入函数
 	mov byte [count], al
-	add word [score], 1
-	sti				; 开中断
-	pusha			; 保存现场
+
+	sti						; 开中断
+	pusha					; 保存现场
+	call clearScreen		; 清屏
+
 	mov si, score_msg
 	mov dh, 1
 	mov dl, 70
-	call printStr	; 打印"score:"字符串
+	call printStr			; 打印"score:"字符串
+	inc word [score]
 	mov ax, [score]
-	call printDec	; 打印分数
-	popa			; 恢复现场
+	call printDec			; 打印分数
+
+	; call snakeMove			; 蛇前进
+	call snakeShow			; 打印蛇身
+
+	popa					; 恢复现场
 new_int_1CH_ret:
 	pop ds
 	iret
+
+;------------------------------------
+; snakeMove: 根据全局变量 snake 让蛇前进
+;   @uses: si, di, ax
+;------------------------------------
+snakeMove:
+	push ax
+	push si
+	push di
+snakeHeadMove:					; 蛇头移动
+	mov si, 0
+	mov ah, byte [dir]			; 取用户按下的方向
+	mov al, byte [snake+si+2]	; 取蛇头结点的方向
+	cmp al, ah					; 比较两个结点的方向
+	je forwardDir				; 如果相同，则方向不变，snake直接前进
+	mov byte [snake+si+2], ah	; 如果不相同，则方向改变，snake转弯
+	mov al, ah
+	jmp forwardDir
+snakeMove_for1:					; 蛇身移动
+	cmp si, [snake_len]			; 判断是否超过snake长度
+	je snakeMove_ret
+	mov di, si-1				; 找到上一个结点
+	shl di, 2					; di=di*4
+	mov ah, byte [snake+di+2]	; 取上一个结点的方向
+	shl si, 2					; si=si*4
+	mov al, byte [snake+si+2]	; 取当前结点方向
+snakeMove_for1_cmp:
+	cmp al, ah					; 比较两个结点的方向
+	je forwardDir				; 如果相同，则方向不变，蛇直接前进
+	mov byte [snake+si+2], ah	; 如果不相同，则方向改变，但蛇按原方向前进
+forwardDir:
+	cmp al, 0
+	je forwardUp
+	cmp al, 1
+	je forwardRight
+	cmp al, 2
+	je forwardDown
+	cmp al, 3
+	je forwardLeft
+forwardUp:
+	dec byte [snake+si]			; 向上，行号--
+	jmp snakeMove_for1_end
+forwardRight:
+	inc byte [snake+si+1]		; 向右，列号++
+	jmp snakeMove_for1_end
+forwardDown:
+	inc byte [snake+si]			; 向下，行号++
+	jmp snakeMove_for1_end
+forwardLeft:
+	dec byte [snake+si+1]		; 向左，列号--
+snakeMove_for1_end:
+	shr si, 2
+	inc si
+	jmp snakeShow_for1
+snakeMove_ret:
+	pop di
+	pop si
+	pop ax
+	ret
+
+
+;------------------------------------
+; snakeShow: 根据全局变量 snake 显示蛇
+;   @uses: si, dx, bh, ax
+;------------------------------------
+snakeShow:
+	push si
+	push dx
+	push bx
+	push ax						; 保存用到的寄存器
+	mov si, 0
+snakeShow_for1:
+	cmp si, [snake_len]			; 判断是否超过snake长度
+	je snakeShow_ret
+	shl si, 2					; si=si*4，每个结点4个字节
+	mov dh, byte [snake+si]		; 取行号
+	mov dl, byte [snake+si+1]	; 取列号
+	mov bh, 0
+	mov ah, 2
+	int 10H						; 设置光标位置
+	mov al, byte [snake+si+3]	; 取结点字符
+	call putChar
+	shr si, 2					; si=si/4
+	inc si						; si++
+	jmp snakeShow_for1
+snakeShow_ret:
+	pop ax
+	pop bx
+	pop dx
+	pop si						; 恢复用到的寄存器
+	ret
 
 ;------------------------------------
 ; printStr: 在指定位置打印字符串
@@ -198,17 +296,17 @@ clearScreen:
 snake:
 	; 蛇头
 	db	5				; 行号
-	db	10				; 列号
+	db	2				; 列号
 	db	1				; 方向。0上，1右，2下，3左
 	db	snake_head_pat	; 蛇头图案
 	; 蛇身第一个结点
 	db	5
-	db	9
+	db	1
 	db	1
 	db	snake_node_pat	; 结点图案
 	; 蛇身第二个结点
 	db	5
-	db	8
+	db	0
 	db	1
 	db	snake_node_pat
 	; 蛇身其它结点预留
@@ -219,8 +317,8 @@ fruit_pos:
 	db	5	; 行号
 	db	15	; 列号
 
-snakeLen		db	3	; 初始为3
-dir				db	0	; 方向
+snake_len		dw	3	; 初始为3
+dir				db	1	; 方向
 speed			db	30	; 前进速度。值越大速度越快，等于18时，1秒动一次
 count			db	30	; 计数器
 score			dw	0	; 分数
