@@ -1,6 +1,6 @@
 ;--------------------
-; @name: snake
-; @description: 工作程序三。网上找到的贪吃蛇程序，存在bug。
+; @name: snake1
+; @description: 工作程序三。网上找到的贪吃蛇程序1，存在bug。
 ; @author: xxxxxx
 ;--------------------
 org 7c00h
@@ -9,26 +9,6 @@ global start
 start:
 
     jmp entry
-#    db 0x00
-#    db "helloOSX"
-#    dw  512
-#    db  1
-#    dw  1
-#    db  2
-#    dw  224
-#    dw  2880
-#    db  0xf0
-#    dw  9
-#    dw  18
-#    dw  2
-#    dd  0
-#    dd  2880
-#    db  0,0,0x29
-
-#    dd  0xffffffff
-#    db  "myosudisk  "
-#    db  "fat12   "
-#    times 18 db 0
 
 keyboard_interrupt:
     in  al,0x60

@@ -1,6 +1,6 @@
 ;--------------------
-; @name: snake_alone
-; @description: 贪吃蛇程序，可直接在裸机上运行
+; @name: snake2
+; @description: 网上找的贪吃蛇程序2，也有bug
 ; @author: dounine
 ;--------------------
 
