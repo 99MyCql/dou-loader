@@ -14,8 +14,8 @@
     - `clock.asm`: 加载程序三。设置定时器中断，长久在右上角显示时间信息，并每过一秒就更新，用户可以选择暂停
     - `keyboard.asm`: 加载程序四。键盘中断，替换 INT 9 中断程序，用户输入F1-F9将出现不一样的现象
     - `div.asm`: 加载程序五。修改 INT 0 除法中断处理程序
-    - `extend-IO`: 加载程序六。设置 INT 90H 为扩展的输出程序，以TTY方式输出带属性的字符
-    - `dou-snake`: 加载程序七。完全自编写的汇编贪吃蛇游戏
+    - `extend-IO.asm`: 加载程序六。设置 INT 90H 为扩展的输出程序，以TTY方式输出带属性的字符
+    - `dou-snake.asm`: 加载程序七。完全自编写的汇编贪吃蛇游戏。详细文档见[https://99mycql.github.io/cs/nasm%E6%B1%87%E7%BC%96%E5%86%99%E8%B4%AA%E5%90%83%E8%9B%87.html](https://99mycql.github.io/cs/nasm%E6%B1%87%E7%BC%96%E5%86%99%E8%B4%AA%E5%90%83%E8%9B%87.html)。
 
 ## Run
 

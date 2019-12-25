@@ -299,10 +299,11 @@ isEatFruit_ret:
 
 ;------------------------------------
 ; snakeMove: 根据全局变量 snake 让蛇前进
-;   @uses: si, di, ax
+;   @uses: si, di, ax, bx
 ;------------------------------------
 snakeMove:
 	push ax
+	push bx
 	push si
 	push di
 snakeHeadMove:					; 蛇头移动
@@ -311,7 +312,20 @@ snakeHeadMove:					; 蛇头移动
 	mov al, byte [snake+si+2]	; 取蛇头结点的方向
 	cmp al, ah					; 比较两个结点的方向
 	je forwardDir				; 如果相同，则方向不变，snake直接前进
-	mov byte [snake+si+2], ah	; 如果不相同，则方向改变，snake转弯
+	mov bx, ax
+	sub bh, bl
+	cmp bh, 2
+	je snakeMove_reverse		; ah-al==2 则反方向
+	mov bx, ax
+	sub bl, bh
+	cmp bl, 2
+	je snakeMove_reverse		; al-ah==2 也算反向
+	jmp snakeMove_turn
+snakeMove_reverse:				; 如果是反方向(两者相减的绝对值为2)，按键无效，snake也直接前进
+	mov ah, al					; ah 记录上一个结点的方向，由于按键无效，所以重新赋值 ah=al
+	jmp forwardDir
+snakeMove_turn:					; 如果不相同也不是反方向，则方向改变，snake转弯
+	mov byte [snake+si+2], ah
 	mov al, ah
 	jmp forwardDir
 snakeMove_for1:					; 蛇身移动
@@ -352,6 +366,7 @@ snakeMove_for1_end:
 snakeMove_ret:
 	pop di
 	pop si
+	pop bx
 	pop ax
 	ret
 
