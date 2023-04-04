@@ -15,7 +15,9 @@
     - `keyboard.asm`: 加载程序四。键盘中断，替换 INT 9 中断程序，用户输入F1-F9将出现不一样的现象
     - `div.asm`: 加载程序五。修改 INT 0 除法中断处理程序
     - `extend-IO.asm`: 加载程序六。设置 INT 90H 为扩展的输出程序，以TTY方式输出带属性的字符
-    - `dou-snake.asm`: 加载程序七。完全自编写的汇编贪吃蛇游戏。详细文档见[https://99mycql.github.io/cs/nasm%E6%B1%87%E7%BC%96%E5%86%99%E8%B4%AA%E5%90%83%E8%9B%87.html](https://99mycql.github.io/cs/nasm%E6%B1%87%E7%BC%96%E5%86%99%E8%B4%AA%E5%90%83%E8%9B%87.html)。
+    - `dou-snake.asm`: 加载程序七。完全自编写的汇编贪吃蛇游戏。
+
+详细文档见[nasm汇编实现贪吃蛇](https://blog.dounine.live/nasm%E6%B1%87%E7%BC%96%E5%86%99%E8%B4%AA%E5%90%83%E8%9B%87.html)。
 
 ## Run
 
@@ -32,20 +34,3 @@ nasm xxx.asm -f bin -o xxx
 ```
 
 then, using `VHDwriter` to write binary in `.vhd` hard disk of Vitrual Machine.
-
-## Git Commit Format
-
-```git
-git commit -m "type: description"
-```
-
-- type:
-    - feat：新功能（feature）
-    - fix：修补bug
-    - docs：文档（documentation）
-    - style：格式（不影响代码运行的变动）
-    - refactor：重构（即不是新增功能，也不是修改bug的代码变动）
-    - test：增加测试
-    - chore：构建过程或辅助工具的变动
-
-- description: 详细描述
